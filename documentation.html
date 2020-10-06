@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Documentation</title>
+</head>
+<body>
+	<h1>London's 1854 cholera epidemic Visualization by Siddhi Joshi (sidjoshi@iu.edu)</h1>
+<h2>Design Process</h2>
+<p> I started the process by observing the <a href="https://en.wikipedia.org/wiki/1854_Broad_Street_cholera_outbreak">original map by John Snow.</a> Since the interactivity between the timeline chart and the map was the main feature, I sketched them out onto a paper. After that, I coded the map first with a grid that shows what each mark means, and cthen constructed the timeline bar chart. To connect these two graphs, I wrote functions for hovering mouse on a bar, and showing death cicles till that day on the map.
+<br/>
+For the distributing deaths age groups and gender wise, I added two bar graphs on the top.
+ </p>
+<img src="resources/sketch.jpg" alt="Sketch" width = 500 height = 700><image>
+<br/>
+<h2>Design choices</h2>
+<ul>
+  <li>The charts were checked by <a href="https://www.colororacle.org/">Color Oracle</a> for accessibility.</li>
+  <li>I chose dark pink and blue to differentiate between males and females, the darker colors were chosen for better visibility.</li>
+  <li>The deaths on the map were represented in circles, while other elements like pump, work house and, brewery were represented in rectangles and different colors to avoid confusion.</li>
+  <li>The opacity of bars on each bar chart was decreased for mouseovers to visualize which bar chart is "selected".</li>
+  <li>The deaths on the map as a reflection of hovering on the timeline chart, were displayed in red. This decision was made to show the change in the locations and count of deaths on the map, and to better understand where the death count was growing</li>
+  <li>The age and gender chart were displayed on the top, to give user basic understanding of the visualization before jumping to the interaction on the map.</li>
+ <li>Map was made zoomable to be able to see exact location (street) of the death.</li>
+</ul>
+<h2>Major Findings</h2>
+<ol>
+<li>As it can be seen on the gender bar chart, the gender on the person did not play a role in being prone to the illness.</li>
+<li>Deaths were more in number on the broad street, it can be concluded that the water from the pumps there played a role in spreading the illness</li>
+<li>Highest deaths reported were in the first week of september.</li>
+<li>As seen on the age chart, children under 10 and elderly over the age of 80 are more likely to get cholera.</li>
+</ol>
+<ol></ol>
+</body>
+</html>

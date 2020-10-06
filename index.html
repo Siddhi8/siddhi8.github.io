@@ -1,0 +1,692 @@
+<html>
+
+<head>
+    <title>John Snow's Map</title>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+</head>
+
+<body>
+    <!-- transform = "rotate(180) scale(-1,1)" -->
+    <section >
+    <a href=documentation.html>Documentation</a>
+			</section>
+				
+    <svg id="age_group_deaths" width=300 height=300 style="margin:  60px"  >
+    <text x='0' y='220'> < 10</text>
+    <text x='45' y='220'>11-20</text>
+    <text x='100' y='220'>21-40</text>
+    <text x='150' y='220'>41-60</text>
+    <text x='200' y='220'>60-80</text>
+    <text x='250' y='220'>>80</text>
+
+
+    <text id='label' x='120' y='270'> Age Distribution Chart</text>
+        <g></g>
+    </svg>
+    <svg id="gender_chart" width=200 height=400 style="margin:  60px">
+
+    	<text x='10' y='320'>female</text>
+    <text x='80' y='320'>male</text>
+    	    <text id='label' x='20' y='370'> Gender Chart</text>
+
+        <g></g>
+    </svg>
+ <svg id="timeline" width=500 height=500>
+        <g></g>
+    </svg>
+        <svg id= "infoGrid" width=400 height=300></svg>
+
+    <svg id="map" width=500 height=450 >
+    </svg>
+   
+    <style type="text/css">
+    .axis {
+        font: 10px sans-serif;
+    }
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+    .tooltip {
+        text-decoration: underline;
+    }
+    </style>
+</body>
+<script type="text/javascript">
+const streets = 'resources/streets.json';
+const pumps = 'resources/pumps.csv';
+const deaths_age_sex = 'resources/deaths_age_sex.csv';
+const deathdays = 'resources/deathdays.csv';
+const MALE = "male";
+const FEMALE = "female";
+const PUMPS_CIRCLE_RADIUS = 8;
+const DEATH_CIRCLE_RADIUS = 4;
+const NUM_AGE_GROUP_MAP =
+    new Map();
+NUM_AGE_GROUP_MAP.set(0, "00-10");
+NUM_AGE_GROUP_MAP.set(1, "11-20");
+NUM_AGE_GROUP_MAP.set(2, "21-40");
+NUM_AGE_GROUP_MAP.set(3, "41-60");
+NUM_AGE_GROUP_MAP.set(4, "61-80");
+NUM_AGE_GROUP_MAP.set(5, "80-");
+
+
+const NUM_GENDER_MAP =
+    new Map();
+NUM_GENDER_MAP.set(0, MALE);
+NUM_GENDER_MAP.set(1, FEMALE);
+
+let map = d3.select("#map");
+let timeline = d3.select("#timeline");
+let ageChart = d3.select("#age_group_deaths");
+let genderChart = d3.select("#gender_chart");
+let infoGrid = d3.select("#infoGrid");
+
+let deathsBeforeDay = new Map();
+const xScale = d3.scale.linear();
+const yScale = d3.scale.linear();
+
+xScale.domain([0, 20]).range([0, 500]);
+yScale.domain([20, 0]).range([0, 500]);
+
+let ageGroupDeaths = new Map();
+let genderMap = new Map();
+
+let death_location = [];
+let sortedDeathLocations = [];
+
+var deathUntil = 0;
+//timeline bar chart variable
+var margin = { top: -20, right: 20, bottom: 70, left: 40 },
+    width = 700 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+// Parse the date / time
+var parseDate = d3.time.format("%d-%b").parse;
+
+var x = d3.scale.ordinal().rangeRoundBands([0, width], .05);
+
+var y = d3.scale.linear().range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickFormat(d3.time.format("%d-%b"));
+
+var xAxis1 = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(10);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform",
+        "translate(" + margin.left + "," + margin.top + ")");
+
+   let totalDeaths = 0;
+
+d3.csv(deathdays, function(error, data) {
+     totalDeaths;
+    data.forEach(function(d) {
+        d.date = parseDate(d.date);
+        d.deaths = +(d.deaths);
+        deathsBeforeDay.set(d.date, totalDeaths);
+        totalDeaths = totalDeaths + d.deaths;
+    });
+    console.log(deathsBeforeDay);
+    x.domain(data.map(function(d) { return d.date }));
+    y.domain([0, d3.max(data, function(d) { return d.deaths; })]);
+
+    svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis)
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", "-.55em")
+        .attr("transform", "rotate(-90)");
+
+    svg.append("g")
+        .attr("class", "y axis")
+        .call(yAxis)
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 6)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end")
+        .text("deaths");
+
+
+    svg.selectAll("bar")
+        .data(data)
+        .enter().append("rect")
+        .style("fill", "orange")
+        .attr("x", function(d) { return x(d.date); })
+        .attr("width", x.rangeBand())
+        .attr("y", function(d) { return y(d.deaths); })
+        .attr("height", function(d) { return height - y(d.deaths); })
+
+        .on("mouseover", function(d) {
+            tooltip.style("display", null);
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '.40');
+
+              map.selectAll("circle").remove();
+           	  map.selectAll("circle")
+                .data(sortedDeathLocations.slice(0, deathsBeforeDay.get(d.date)))
+                .enter()
+                .append("circle")
+                .attr("r", DEATH_CIRCLE_RADIUS)
+                .style("fill", "red")
+                .attr("cx", function(d) { return xScale(d.x); })
+                .attr("cy", function(d) { return yScale(d.y); })
+
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("display", "none");
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '1');
+
+                            map.selectAll("circle").remove();
+
+                    drawDeathCircles(death_location);
+
+
+        })
+        .on("mousemove", function(d, i) {
+            var xPos = d3.mouse(this)[0] - 15;
+            var yPos = d3.mouse(this)[1] - 55;
+            var dayCount = i + 1;
+            tooltip.attr("transform",
+                "translate(" + xPos + "," + yPos + ")");
+            tooltip.select("text").text("deaths:" +
+                d.deaths +
+                ", day:" + dayCount
+            )
+
+
+        })
+
+        //Question **************
+       /* .on("click", function(d, i) {
+
+            map.selectAll("circle").remove();
+            map.selectAll("circle")
+                .data(sortedDeathLocations.splice(0, deathsBeforeDay.get(d.date)))
+                .enter()
+                .append("circle")
+                .attr("r", DEATH_CIRCLE_RADIUS)
+                .style("fill", "red")
+                .attr("cx", function(d) { return xScale(d.x); })
+                .attr("cy", function(d) { return yScale(d.y); })
+
+            // console.log("on click d:", d, "i ", i) ;
+
+        }); */
+
+    var tooltip = svg.append("g")
+        .attr("class", tooltip)
+        .style("display", "none");
+
+    tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("font-size", "1.25em")
+        .attr("font-weight", "bold");
+
+
+});
+
+
+// info grid about map elements
+infoGrid.append("rect")
+        .style("fill", "Green")
+        .attr("x", 160)
+        .attr("width", 17)
+        .attr("y", 30)
+        .attr("height", 17);
+infoGrid.append("text")
+        .style("fill", "black")
+        .style("font-size", "18px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(230,35)")
+        .text("Work House");
+
+infoGrid.append("rect")
+        .style("fill", "brown")
+        .attr("x", 160)
+        .attr("width", 11)
+        .attr("y", 70)
+        .attr("height", 11);
+infoGrid.append("text")
+        .style("fill", "black")
+        .style("font-size", "18px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(230,75)")
+        .text("Brewery");
+
+infoGrid.append("rect")
+        .style("fill", "black")
+        .attr("x", 160)
+        .attr("width", 11)
+        .attr("y", 110)
+        .attr("height", 11);
+infoGrid.append("text")
+        .style("fill", "black")
+        .style("font-size", "18px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(230,115)")
+        .text("Pump");
+
+
+//Age Bar Chart
+
+function get_age_group_deaths(data) {
+    for (var i = 0; i < data.length; i++) {
+        let age = parseInt(data[i].age);
+        if (!ageGroupDeaths.has(age)) {
+            ageGroupDeaths.set(age, 0);
+        }
+        if (age >= 0 & age <= 5) {
+            ageGroupDeaths.set(age, ageGroupDeaths.get(age) + 1);
+        } else {
+            console.alert("wrong age in csv");
+        }
+    }
+    let formatted_data = []
+    for (let [key, value] of ageGroupDeaths.entries()) {
+        formatted_data.push({ 'x': NUM_AGE_GROUP_MAP.get(key), 'y': value });
+    }
+
+//*****
+	function compare(a, b) {
+  if (a.x > b.x) return 1;
+  if (b.x > a.x) return -1;
+
+  return 0;
+}
+
+//***
+formatted_data.sort(compare);
+
+   
+    return formatted_data;
+}
+
+d3.csv(deaths_age_sex, function(data) {
+    correctly_formatted_data = get_age_group_deaths(data);
+ 
+    var maxValue = 0;
+    for (var i = 0; i < correctly_formatted_data.length; i++) {
+        if (maxValue < correctly_formatted_data[i].y) {
+            maxValue = correctly_formatted_data[i].y;
+        }
+
+    }
+    console.log(maxValue);
+
+    var selection = ageChart.selectAll('rect').data(correctly_formatted_data);
+
+    var rectangles = selection.enter().append('rect');
+    var BAR_WIDTH = 30;
+    var MAX_BAR_HEIGHT = 200;
+
+ 
+
+    //***************
+    var xScale_chart = d3.scale.linear();
+
+    xScale_chart.domain([correctly_formatted_data[0].x,
+            correctly_formatted_data[(correctly_formatted_data.length - 1)].x
+        ])
+        .range([0, 300]);
+
+
+    var pathGeneratorChart = d3.svg.line()
+        .x(function(d) { return xScale(d.x); });
+
+    var g = ageChart.select('g');
+
+
+    var xAxisChart = d3.svg.axis()
+        .scale(xScale_chart)
+        .orient('bottom')
+        .tickFormat(correctly_formatted_data.x)
+
+    g.append('g')
+        .attr('class', 'axis')
+        .attr('transform', 'translate(0,' + MAX_BAR_HEIGHT + ')')
+        .call(xAxisChart);
+
+  		g.append("text")             
+      .attr("transform",
+            "translate(" + (width/2) + " ," + 
+                           (height + margin.top + 20) + ")")
+      .style("text-anchor", "end")
+       .attr("dx", "-.8em")
+        .attr("dy", "-.55em")
+        .attr("transform", "rotate(-90)");
+
+
+
+    rectangles.attr('width', BAR_WIDTH);
+
+    rectangles.attr('x', function(d, i) {
+            return i * 50;
+
+        })
+        .attr('height', function(d) {
+            var n = d.y / maxValue;
+            return n * MAX_BAR_HEIGHT;
+        })
+        .attr('y', function(d) {
+            var n = 1 - (d.y / maxValue);
+            return n * MAX_BAR_HEIGHT;
+        })
+        .style("fill", "steelblue")
+
+        .on("mouseover", function(d) {
+            tooltip.style("display", null);
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '.70');
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("display", "none");
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '1');
+
+        })
+        .on("mousemove", function(d, i) {
+            var xPos = d3.mouse(this)[0] - 15;
+            var yPos = d3.mouse(this)[1] - 55;
+            var deathCount = d.y;
+            tooltip.attr("transform",
+                "translate(" + xPos + "," + yPos + ")");
+            tooltip.select("text").text("deaths:" + deathCount)
+
+        })
+
+    var tooltip = ageChart.append("g")
+        .attr("class", tooltip)
+        .style("display", "none");
+
+    tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("font-size", "1.25em")
+        .attr("font-weight", "bold");
+
+
+
+});
+
+
+//Gender Chart
+
+function get_gender_deaths(data) {
+    for (var i = 0; i < data.length; i++) {
+        let gender = parseInt(data[i].gender);
+        if (!genderMap.has(gender)) {
+            genderMap.set(gender, 0);
+        }
+        if (gender >= 0 & gender <= 1) {
+            genderMap.set(gender, genderMap.get(gender) + 1);
+        } else {
+            console.alert("wrong gender in csv");
+        }
+    }
+    let formatted_data = []
+    for (let [key, value] of genderMap.entries()) {
+        formatted_data.push({ 'x': NUM_GENDER_MAP.get(key), 'y': value });
+    }
+
+    console.log("formatted_data for gender: " + formatted_data);
+    return formatted_data;
+}
+
+d3.csv(deaths_age_sex, function(data) {
+    correctly_formatted_data = get_gender_deaths(data);
+
+    var maxValue = 0;
+    for (var i = 0; i < correctly_formatted_data.length; i++) {
+        if (maxValue < correctly_formatted_data[i].y) {
+            maxValue = correctly_formatted_data[i].y;
+        }
+
+    }
+    console.log(maxValue);
+
+    var selection = genderChart.selectAll('rect').data(correctly_formatted_data);
+
+    var rectangles = selection.enter().append('rect');
+    var BAR_WIDTH = 50;
+    var MAX_BAR_HEIGHT = 300;
+
+    //xAxis
+    var xScale_chart = d3.scale.linear();
+
+    xScale_chart.domain([correctly_formatted_data[0].x,
+            correctly_formatted_data[(correctly_formatted_data.length - 1)].x
+        ])
+        .range([0, 150]);
+
+
+    var pathGeneratorChart = d3.svg.line()
+        .x(function(d) { return xScale(d.x); });
+
+    var g = genderChart.select('g');
+
+
+    var xAxisChart = d3.svg.axis()
+        .scale(xScale_chart)
+        .orient('bottom')
+        .tickFormat(function(d) { return "" + d.x; })
+
+    g.append('g')
+        .attr('class', 'axis')
+        .attr('transform', 'translate(0,' + MAX_BAR_HEIGHT + ')')
+        .call(xAxisChart);
+
+    rectangles.attr('width', BAR_WIDTH);
+
+    rectangles.attr('x', function(d, i) {
+            return i * 70;
+
+        })
+        .attr('height', function(d) {
+            var n = d.y / maxValue;
+            return n * MAX_BAR_HEIGHT;
+        })
+        .attr('y', function(d) {
+            var n = 1 - (d.y / maxValue);
+            return n * MAX_BAR_HEIGHT;
+        })
+        .style("fill", function(d) { if (d.x == MALE) { return "blue"; } else { return "rgb(232,58,216)" ; } })
+
+        .on("mouseover", function(d) {
+            tooltip.style("display", null);
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '.70');
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("display", "none");
+            d3.select(this).transition()
+                .duration('50')
+                .attr('opacity', '1');
+
+        })
+        .on("mousemove", function(d, i) {
+            var xPos = d3.mouse(this)[0] - 15;
+            var yPos = d3.mouse(this)[1] - 55;
+            var deathCount = d.y;
+            tooltip.attr("transform",
+                "translate(" + xPos + "," + yPos + ")");
+            tooltip.select("text").text("deaths:" + deathCount)
+
+        })
+
+    var tooltip = genderChart.append("g")
+        .attr("class", tooltip)
+        .style("display", "none");
+
+    tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("font-size", "1.25em")
+        .attr("font-weight", "bold");
+
+
+
+});
+
+
+
+//  reading json file from d3
+d3.json(streets, function(data) {
+    let states_data = data;
+
+    const pathLineGeneratorHelper = d3.svg.line()
+        .x(function(d) { return xScale(d.x); })
+        .y(function(d) { return yScale(d.y); })
+        .interpolate("linear");
+
+    map.selectAll(".line")
+        .data(states_data)
+        .enter()
+        .append("path")
+        .attr("d", pathLineGeneratorHelper)
+        .style('fill', 'none')
+        .style('stroke', 'black')
+        .style('stroke-width', '1px')
+
+    map.append("text")
+        .style("fill", "black")
+        .style("font-size", "16px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(187,233) rotate(60)")
+        .text("Regent Street");
+
+    map.append("text")
+        .style("fill", "black")
+        .style("font-size", "16px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(255,80) rotate(-10)")
+        .text("Oxford Street");
+
+    map.append("text")
+        .style("fill", "black")
+        .style("font-size", "16px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(362,168) rotate(60)")
+        .text("Wick Street");
+
+    map.append("text")
+        .style("fill", "black")
+        .style("font-size", "18px")
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .attr("transform", "translate(315,199) rotate(-28)")
+        .text("Broad Street");
+
+//
+
+    map.append("rect")
+        .style("fill", "Green")
+        .attr("x", 270)
+        .attr("width", 17)
+        .attr("y", 160)
+        .attr("height", 17)
+
+    map.append("rect")
+        .style("fill", "brown")
+        .attr("x", 343)
+        .attr("width", 11)
+        .attr("y", 200)
+        .attr("height", 11);;
+
+    map.call(d3.behavior.zoom().on("zoom", function() {
+        map.attr("transform", "translate(" + d3.event.translate + ")" + " scale(" + d3.event.scale + ")")
+    }))
+});
+
+//Reading pumps data
+d3.csv(pumps, function(data) {
+    let pump_location = [];
+
+    for (var i = 0; i < data.length; i++) {
+        pump_location.push({ "x": parseFloat(data[i].x), "y": parseFloat(data[i].y) });
+    }
+
+    map.selectAll("pumps_rect")
+        .data(pump_location)
+        .enter().append("rect")
+        .style("fill", "black")
+        .attr("x", function(d) { return xScale(d.x); })
+        .attr("width", 11)
+        .attr("y", function(d) { return yScale(d.y); })
+        .attr("height", 11)
+
+
+});
+
+//Reading deaths data
+d3.csv(deaths_age_sex, function(data) {
+     death_location = [];
+
+    for (var i = 0; i < data.length; i++) {
+        let age = data[i].age;
+        let gender = data[i].gender;
+        let properObject = {
+            "x": parseFloat(data[i].x),
+            "y": parseFloat(data[i].y),
+            "age": age,
+            "gender": gender
+        };
+        death_location.push(properObject);
+        sortedDeathLocations.push(properObject);
+
+    }
+
+    drawDeathCircles(death_location);
+
+});
+
+function drawDeathCircles(data) {
+    let death_location = data;
+
+    var circles = map.selectAll("death_circles").data(death_location);
+
+    circles.enter()
+        .append("circle")
+        .attr("r", DEATH_CIRCLE_RADIUS)
+        .style("fill", function(d) { if (d.gender == "0") { return "blue"; } else { return "rgb(232,58,216)"; } })
+        .attr("cx", function(d) { return xScale(d.x); })
+        .attr("cy", function(d) { return yScale(d.y); })
+
+}
+
+</script>
+
+</html>
